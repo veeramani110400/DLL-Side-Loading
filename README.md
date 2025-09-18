@@ -1,36 +1,39 @@
-
 ---
 
 # 🔍 DLL Sideloading Risk Detector
 
 This tool automates the detection of **DLL sideloading opportunities** on Windows systems using [Procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon).
-It captures DLL load behavior, analyzes search paths, and checks whether those paths are writable by a **standard user** — highlighting real-world attack surfaces.
+It captures DLL load behavior, analyzes search paths, and highlights **possible attack surfaces** where an attacker could hijack the DLL loading process.
 
 ---
 
 ## ✨ Features
 
-* **Automated Procmon Capture** – runs Procmon in headless mode, captures events, and exports logs.
-* **DLL Load Analysis** – identifies suspicious DLL search patterns (`CreateFile → not found` + `Load Image → success`).
-* **Writable Path Detection** – verifies if DLL search paths are writable **as a standard user**, not as Administrator.
+* **Automated Procmon Capture** – runs Procmon in headless mode, captures DLL load activity, and exports logs.
+* **DLL Load Analysis** – identifies suspicious DLL search patterns (e.g., missing DLLs or relative paths).
 * **Noise Filtering** – ignores irrelevant system processes (e.g., `procmon.exe`, `backgroundtaskhost.exe`).
-* **Focused Output** – only shows **non-protected, writable paths** where an attacker could actually drop or replace a DLL.
+* **Heuristic Checks** – instead of requiring admin vs. standard user checks, the tool now:
+
+  * Detects EXEs using **relative paths** for DLLs.
+  * Flags DLL lookups that fall into **user-writable locations** (e.g., `%TEMP%`, `C:\Users\Public\`).
+  * Adds an optional check to see whether the application verifies **DLL digital signatures**.
 
 ---
 
 ## 📋 Example Output
 
 ```
-[Writable DLL sideloading risk] agentInstallerComponent.exe tried to load textshaping.dll
-  ❌ Failed CreateFile: c:\windows\temp\textshaping.dll
-    🔓 Writable (standard user) → attacker can drop DLL here
+[Possible DLL Side Loading] agentInstallerComponent.exe tried to load textshaping.dll
+  ❌ Lookup failed: c:\windows\temp\textshaping.dll
+    ⚠️ Writable location (TEMP) — attacker controlled
+    🚫 No signature validation detected
 ```
 
 ---
 
 ## 🛠️ Requirements
 
-* Windows (Admin rights required for Procmon capture)
+* Windows
 * [Procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon) in PATH
 * Python 3.8+
 
@@ -38,7 +41,7 @@ It captures DLL load behavior, analyzes search paths, and checks whether those p
 
 ## ▶️ Usage
 
-1. Run the main script as **Administrator**:
+1. Run the script:
 
    ```bash
    python sideload_check.py
@@ -46,13 +49,13 @@ It captures DLL load behavior, analyzes search paths, and checks whether those p
 
 2. The script will:
 
-   * Start Procmon (headless)
-   * Capture DLL activity
-   * Export to CSV
-   * Analyze for sideloading risks
-   * Test path writability as a **standard user** via a helper script
+   * Start Procmon (headless mode)
+   * Capture DLL load activity
+   * Export logs to CSV
+   * Analyze for **possible DLL sideloading risks**
+   * Classify results with heuristic checks
 
-3. To run headless (no console window):
+3. To run silently (no console window):
 
    ```bash
    pythonw sideload_check.py
@@ -63,22 +66,25 @@ It captures DLL load behavior, analyzes search paths, and checks whether those p
 ## ⚡ How It Works
 
 * Many applications probe multiple directories before successfully loading a DLL.
-* If any of these directories are **writable by an unprivileged user**, an attacker can drop a malicious DLL to hijack the trusted process.
-* This tool flags only **actual risks** (paths writable by a standard user).
+* If any of these directories are **user-writable**, an attacker may drop a malicious DLL and hijack the process.
+* The tool flags **possible risks** using three checks:
+
+  1. EXE loads DLLs via relative paths
+  2. DLL lookup paths overlap with known **user-writable locations**
+  3. DLL signature validation is missing or not enforced
 
 ---
 
 ## 📌 Notes
 
-* The tool is for **detection and auditing** only — it does not block DLL sideloading.
+* This tool is for **detection and auditing only** — it does not block DLL sideloading.
 * Designed for **blue teams, DFIR analysts, and EDR developers**.
-* Results can be extended to **export JSON/CSV** for integration with SIEM or security pipelines.
+* Results can be extended to **export JSON/CSV** for SIEM or pipeline integration.
 
 ---
 
 ### 🔖 GitHub Repo Description (short tagline)
 
-> Detects **DLL sideloading risks** on Windows by analyzing Procmon logs and verifying writable DLL search paths as a standard user.
+> Detects **possible DLL sideloading risks** on Windows by analyzing Procmon logs and applying heuristic checks (relative DLL paths, writable directories, missing signature validation).
 
 ---
-
